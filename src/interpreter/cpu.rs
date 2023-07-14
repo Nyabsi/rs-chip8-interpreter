@@ -8,6 +8,8 @@ enum Instructions {
     INSTRUCTION_UNKNOWN = 0,
     INSTRUCTION_CLEAR_SCREEN = 0x1,
     INSTRUCTION_JUMP = 0x2,
+    INSTRUCTION_CALL_SUBROUTINE = 0x3,
+    INSTRUCTION_SET_REGISTER = 0x4,
 }
 pub struct CPU {
     memory: Memory,
@@ -38,7 +40,14 @@ impl CPU {
         let instruction = self.decode(opcode);
         match instruction {
             Instructions::INSTRUCTION_JUMP => {
-                let nnn = opcode & 0x0fff;
+                let nnn: u16 = opcode & 0x0fff;
+                print!("nnn is 0x{}\n", nnn);
+                self.pc_reg = nnn;
+            }
+            Instructions::INSTRUCTION_CALL_SUBROUTINE => {
+                let nnn: u16 = opcode & 0x0fff;
+                self.stack[self.sp_reg as usize] = nnn;
+                self.sp_reg += 1;
                 self.pc_reg = nnn;
             }
             _ => {
@@ -68,6 +77,12 @@ impl CPU {
             },
             0x1000 => {
                 return Instructions::INSTRUCTION_JUMP
+            },
+            0x2000 => {
+                return Instructions::INSTRUCTION_CALL_SUBROUTINE
+            },
+            0x6000 => {
+                return Instructions::INSTRUCTION_SET_REGISTER
             }
             _ => {
                 panic!("Unknown Instruction, opcode: 0x{}", opcode);
