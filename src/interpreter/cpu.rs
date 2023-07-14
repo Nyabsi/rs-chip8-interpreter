@@ -7,7 +7,7 @@ use super::memory::Memory;
 enum Instructions {
     INSTRUCTION_UNKNOWN = 0,
     INSTRUCTION_CLEAR_SCREEN = 0x1,
-    INSTRUCTION_SKIP_NEXT_INST = 0x2,
+    INSTRUCTION_JUMP = 0x2,
 }
 pub struct CPU {
     memory: Memory,
@@ -16,7 +16,6 @@ pub struct CPU {
     sp_reg: u16,
     stack: [u16; 16],
     v_regs: [u8; 16],    // 15 variable registers, 1 flag register.
-    current_opcode: u16,
 }
 
 impl CPU {
@@ -28,7 +27,6 @@ impl CPU {
             sp_reg: 0x0,
             stack: [0; 16],
             v_regs: [0; 16],
-            current_opcode: 0x0,
         }
     }
     pub fn initialize(&mut self) {
@@ -37,9 +35,12 @@ impl CPU {
     // Let's only expose "execute" publicly, we'll handle fetching and decoding privately.
     pub fn execute(&mut self) {
         let opcode = self.fetch();
-        self.current_opcode = opcode;
         let instruction = self.decode(opcode);
         match instruction {
+            Instructions::INSTRUCTION_JUMP => {
+                let nnn = opcode & 0xfff;
+                self.pc_reg = nnn;
+            }
             _ => {
                 panic!("Unimplemented Instruction, 0x{} called!", opcode);
             }
@@ -56,7 +57,7 @@ impl CPU {
     fn decode(&mut self, opcode: u16) -> Instructions {
         match opcode & 0xf000 {
             0x0000 => {
-                match opcode & 0x0ff {
+                match opcode & 0x00ff {
                     0x00E0 => {
                         return Instructions::INSTRUCTION_CLEAR_SCREEN
                     }
@@ -66,7 +67,7 @@ impl CPU {
                 }
             },
             0x1000 => {
-                return Instructions::INSTRUCTION_SKIP_NEXT_INST
+                return Instructions::INSTRUCTION_JUMP
             }
             _ => {
                 panic!("Unknown Instruction, opcode: 0x{}", opcode);
