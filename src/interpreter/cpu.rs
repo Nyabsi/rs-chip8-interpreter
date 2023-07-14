@@ -6,7 +6,8 @@ use super::memory::Memory;
 
 enum Instructions {
     INSTRUCTION_UNKNOWN = 0,
-    INSTRUCTION_CLEAR_SCREEN = 0x00E0,
+    INSTRUCTION_CLEAR_SCREEN = 0x1,
+    INSTRUCTION_SKIP_NEXT_INST = 0x2,
 }
 pub struct CPU {
     memory: Memory,
@@ -53,32 +54,23 @@ impl CPU {
         return (u16::from(lP) << 8 | u16::from(hP));
     }
     fn decode(&mut self, opcode: u16) -> Instructions {
-        match opcode {
-            _ if opcode & 0xf000 != 0 => {
-                match opcode {
-                    0x0000 => {
-                        match opcode {
-                            _ if opcode & 0x00ff != 0 => {
-                                match opcode {
-                                    0x00E0 => {
-                                        return Instructions::INSTRUCTION_CLEAR_SCREEN;
-                                    },
-                                    _ => {
-                                        panic!("Unknown Instruction (0x0FF family), opcode: 0x{}", opcode);
-                                    }
-                                }
-                            },
-                            _ => panic!("Unknown Instruction Family, opcode: 0x{}", opcode), // We should never reach here.
-                        }
-                    },
+        match opcode & 0xf000 {
+            0x0000 => {
+                match opcode & 0x0ff {
+                    0x00E0 => {
+                        return Instructions::INSTRUCTION_CLEAR_SCREEN
+                    }
                     _ => {
-                        panic!("Unknown Instruction, opcode: 0x{}", opcode);
+                        panic!("Unknown Instruction (0x00FF family), opcode: 0x{}", opcode);
                     }
                 }
             },
+            0x1000 => {
+                return Instructions::INSTRUCTION_SKIP_NEXT_INST
+            }
             _ => {
-                panic!("Unknown Instruction (0xF000 family), opcode: 0x{}", opcode);
-            },
+                panic!("Unknown Instruction, opcode: 0x{}", opcode);
+            }
         }
     }
 }
