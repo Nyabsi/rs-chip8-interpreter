@@ -38,7 +38,7 @@ impl CPU {
         let instruction = self.decode(opcode);
         match instruction {
             Instructions::INSTRUCTION_JUMP => {
-                let nnn = opcode & 0xfff;
+                let nnn = opcode & 0x0fff;
                 self.pc_reg = nnn;
             }
             _ => {
