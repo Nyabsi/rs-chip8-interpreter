@@ -41,7 +41,6 @@ impl CPU {
         match instruction {
             Instructions::INSTRUCTION_JUMP => {
                 let nnn: u16 = opcode & 0x0fff;
-                print!("nnn is 0x{}\n", nnn);
                 self.pc_reg = nnn;
             }
             Instructions::INSTRUCTION_CALL_SUBROUTINE => {
@@ -57,7 +56,7 @@ impl CPU {
                 self.pc_reg += 2;
             }
             _ => {
-                panic!("Unimplemented Instruction, 0x{} called!", opcode);
+                panic!("Unimplemented Instruction, 0x{:X} called!", opcode);
             }
         }
     }
@@ -77,7 +76,7 @@ impl CPU {
                         return Instructions::INSTRUCTION_CLEAR_SCREEN
                     }
                     _ => {
-                        panic!("Unknown Instruction (0x00FF family), opcode: 0x{}", opcode);
+                        panic!("Unknown Instruction (0x00FF family), opcode: 0x{:X}", opcode);
                     }
                 }
             },
@@ -91,7 +90,7 @@ impl CPU {
                 return Instructions::INSTRUCTION_SET_REGISTER
             }
             _ => {
-                panic!("Unknown Instruction, opcode: 0x{}", opcode);
+                panic!("Unknown Instruction, opcode: 0x{:X}", opcode);
             }
         }
     }
