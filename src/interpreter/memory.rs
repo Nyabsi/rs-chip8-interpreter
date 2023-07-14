@@ -2,6 +2,7 @@
 use std::fs::File;
 use std::io::Read;
 use core::ascii;
+use std::ops::Index;
 
 const FONTSET: [u8; 80] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -38,7 +39,6 @@ impl Memory {
         // copy FONTSET to ram.
         self.ram[0..FONTSET.len()].copy_from_slice(&FONTSET);
     }
-
     pub fn load_rom(&mut self, path: &str) {
         let mut file = File::open(path).expect("Failed to load ROM from file, make sure the path is valid.");
         let mut buffer = Vec::<u8>::new();
@@ -52,10 +52,12 @@ impl Memory {
         self.rom_loaded = true;
         print!("ROM loaded!\n");
     }
-
     // I am adding this to validate the memory actually loads properly.
     pub fn dump_memory(&mut self) -> String {
         return self.ram.iter().map(|&x| format!("{:02X}", x)).collect();
     }
-
+    // TODO: similar function for writing memory, not required yet.
+    pub fn get_from_index(&mut self, i: usize) -> &u8 {
+        return self.ram.index(i);
+    }
 }
