@@ -50,6 +50,12 @@ impl CPU {
                 self.sp_reg += 1;
                 self.pc_reg = nnn;
             }
+            Instructions::INSTRUCTION_SET_REGISTER => {
+                let vx = ((opcode & 0x0f00) >> 8) as u8;
+                let nn = (opcode & 0x00ff) as u8;
+                self.v_regs[vx as usize] = nn;
+                self.pc_reg += 2;
+            }
             _ => {
                 panic!("Unimplemented Instruction, 0x{} called!", opcode);
             }
