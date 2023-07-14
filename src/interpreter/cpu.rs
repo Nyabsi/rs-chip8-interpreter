@@ -1,15 +1,13 @@
 // This file manages the CPU of the interpreter.
 
-use std::ops::Deref;
-
 use super::memory::Memory;
 
 enum Instructions {
-    INSTRUCTION_UNKNOWN = 0,
-    INSTRUCTION_CLEAR_SCREEN = 0x1,
-    INSTRUCTION_JUMP = 0x2,
-    INSTRUCTION_CALL_SUBROUTINE = 0x3,
-    INSTRUCTION_SET_REGISTER = 0x4,
+    InstructionUnknown = 0,
+    InstructionClearScreen = 0x1,
+    InstructionJump = 0x2,
+    InstructionCallSubroutine = 0x3,
+    InstructionSetRegister = 0x4,
 }
 pub struct CPU {
     memory: Memory,
@@ -39,17 +37,17 @@ impl CPU {
         let opcode = self.fetch();
         let instruction = self.decode(opcode);
         match instruction {
-            Instructions::INSTRUCTION_JUMP => {
+            Instructions::InstructionJump => {
                 let nnn: u16 = opcode & 0x0fff;
                 self.pc_reg = nnn;
             }
-            Instructions::INSTRUCTION_CALL_SUBROUTINE => {
+            Instructions::InstructionCallSubroutine => {
                 let nnn: u16 = opcode & 0x0fff;
                 self.stack[self.sp_reg as usize] = nnn;
                 self.sp_reg += 1;
                 self.pc_reg = nnn;
             }
-            Instructions::INSTRUCTION_SET_REGISTER => {
+            Instructions::InstructionSetRegister => {
                 let vx = ((opcode & 0x0f00) >> 8) as u8;
                 let nn = (opcode & 0x00ff) as u8;
                 self.v_regs[vx as usize] = nn;
@@ -73,7 +71,7 @@ impl CPU {
             0x0000 => {
                 match opcode & 0x00ff {
                     0x00E0 => {
-                        return Instructions::INSTRUCTION_CLEAR_SCREEN
+                        return Instructions::InstructionClearScreen
                     }
                     _ => {
                         panic!("Unknown Instruction (0x00FF family), opcode: 0x{:X}", opcode);
@@ -81,13 +79,13 @@ impl CPU {
                 }
             },
             0x1000 => {
-                return Instructions::INSTRUCTION_JUMP
+                return Instructions::InstructionJump
             },
             0x2000 => {
-                return Instructions::INSTRUCTION_CALL_SUBROUTINE
+                return Instructions::InstructionCallSubroutine
             },
             0x6000 => {
-                return Instructions::INSTRUCTION_SET_REGISTER
+                return Instructions::InstructionSetRegister
             }
             _ => {
                 panic!("Unknown Instruction, opcode: 0x{:X}", opcode);

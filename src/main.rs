@@ -15,7 +15,7 @@ fn main() {
     let memory = cpu.get_memory();
 
     memory.initialize();
-    memory.load_rom("test_opcode.ch8");
+    memory.load_rom("ibm.ch8");
 
     loop {
         cpu.execute();
