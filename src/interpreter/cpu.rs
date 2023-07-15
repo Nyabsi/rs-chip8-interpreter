@@ -10,6 +10,7 @@ enum Instructions {
     InstructionSetRegisterIndex = 0x5,
     InstructionRenderDisplay = 0x6,
     InstructionAddToRegister = 0x7,
+    InstructionBinaryDecimalConversion = 0x8,
 }
 
 pub struct CPU {
@@ -100,6 +101,13 @@ impl CPU {
                 let nn = (opcode & 0x00ff) as u8;
                 self.v[vx as usize] += nn;
                 self.pc += 2;
+            },
+            Instructions::InstructionBinaryDecimalConversion => {
+                let vx = (opcode & 0x0f00 >> 8) as u8;
+                memory.set_from_index(self.i as usize, self.v[vx as usize] / 100);
+                memory.set_from_index((self.i + 1) as usize, (self.v[vx as usize] / 10) % 10);
+                memory.set_from_index((self.i  + 2) as usize, (self.v[vx as usize] % 100) % 10);
+                self.pc += 2;
             }
         }
     }
@@ -116,7 +124,7 @@ impl CPU {
                         Instructions::InstructionClearScreen
                     }
                     _ => {
-                        panic!("Unknown Instruction (0x00FF family), opcode: 0x{:X}", opcode);
+                        panic!("Unknown Instruction (0x0000 family), opcode: 0x{:X}", opcode);
                     }
                 }
             },
@@ -137,6 +145,16 @@ impl CPU {
             },
             0xD000 => {
                 Instructions::InstructionRenderDisplay
+            },
+            0xF000 => {
+                match opcode & 0x00ff {
+                    0x0033 => {
+                        Instructions::InstructionBinaryDecimalConversion
+                    }
+                    _ => {
+                        panic!("Unknown Instruction (0xF000 family), opcode: 0x{:X}", opcode);
+                    }
+                }
             }
             _ => {
                 panic!("Unknown Instruction, opcode: 0x{:X}", opcode);

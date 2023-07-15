@@ -56,8 +56,10 @@ impl Memory {
     pub fn dump_memory(&mut self) -> String {
         return self.ram.iter().map(|&x| format!("{:02X}", x)).collect();
     }
-    // TODO: similar function for writing memory, not required yet.
     pub fn get_from_index(&mut self, i: usize) -> u8 {
         return *self.ram.index(i);
+    }
+    pub fn set_from_index(&mut self, i: usize, data: u8) {
+        self.ram[i] = data;
     }
 }
