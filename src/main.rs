@@ -8,7 +8,6 @@ mod tests;
 fn main() {
     
     let mut cpu = interpreter::cpu::CPU::new(); // create new instance of CPU
-    cpu.initialize(); // initialize CPU
 
     let mut memory = interpreter::memory::Memory::new();
     memory.initialize();
@@ -32,7 +31,7 @@ fn main() {
         }
 
         if cpu.get_flags() & 0xA != 0 {
-            let buffer = cpu.get_cpu_buffer();
+            let buffer = cpu.get_buffer();
             display.draw(buffer);
             cpu.remove_flag(0xA);
         }

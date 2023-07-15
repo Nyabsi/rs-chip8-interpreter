@@ -24,20 +24,20 @@ const FONTSET: [u8; 80] = [
 
 pub struct Memory {
     ram: [u8; 4096],
-    rom_loaded: bool,
 }
 
 impl Memory {
     pub fn new() -> Self {
         Memory {
             ram: [0; 4096],
-            rom_loaded: false,
         }
     }
+
     pub fn initialize(&mut self) {
         // copy FONTSET to ram.
         self.ram[0..FONTSET.len()].copy_from_slice(&FONTSET);
     }
+
     pub fn load_rom(&mut self, path: &str) {
         let mut file = File::open(path).expect("Failed to load ROM from file, make sure the path is valid.");
         let mut buffer = Vec::<u8>::new();
@@ -48,17 +48,19 @@ impl Memory {
         } else {
             panic!("Failed to copy ROM to memory, exceeding maximum allowed ROM size (4096 bytes)");
         }
-        self.rom_loaded = true;
         print!("ROM loaded!\n");
     }
+
     // I am adding this to validate the memory actually loads properly.
     #[allow(dead_code)]
     pub fn dump_memory(&mut self) -> String {
         return self.ram.iter().map(|&x| format!("{:02X}", x)).collect();
     }
+
     pub fn get_from_index(&mut self, i: usize) -> u8 {
         return *self.ram.index(i);
     }
+
     pub fn set_from_index(&mut self, i: usize, data: u8) {
         self.ram[i] = data;
     }

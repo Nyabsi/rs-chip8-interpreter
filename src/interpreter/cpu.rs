@@ -14,7 +14,7 @@ enum Instructions {
 }
 
 pub struct CPU {
-    screen_buffer: [[bool; 64]; 32],
+    buffer: [[bool; 64]; 32],
     pc: u16,
     i: u16,
     sp: u16,
@@ -26,8 +26,8 @@ pub struct CPU {
 impl CPU {
     pub fn new() -> Self {
         CPU {
-            screen_buffer: [[false; 64]; 32],
-            pc: 0x0,
+            buffer: [[false; 64]; 32],
+            pc: 0x200,
             i: 0x0,
             sp: 0x0,
             stack: [0; 16],
@@ -35,9 +35,7 @@ impl CPU {
             flags: 0x0,
         }
     }
-    pub fn initialize(&mut self) {
-        self.pc = 0x200;
-    }
+
     // Let's only expose "execute" publicly, we'll handle fetching and decoding privately.
     pub fn execute(&mut self, memory: &mut Memory) {
         let opcode = self.fetch(memory);
@@ -46,7 +44,7 @@ impl CPU {
             Instructions::InstructionClearScreen => {
                 for y in 0..32 {
                     for x in 0..64 {
-                        self.screen_buffer[y][x] = false;
+                        self.buffer[y][x] = false;
                     }
                 }
                 self.pc += 2;
@@ -87,8 +85,8 @@ impl CPU {
                         let x = (init_x + j) % 64;
                         let y = (init_y + i) % 32;
                         if pixel & 0x80 >> j != 0 {
-                            self.v[0xF] |= self.screen_buffer[y % 32][x % 64] as u8;
-                            self.screen_buffer[y][x] ^= true;
+                            self.v[0xF] |= self.buffer[y % 32][x % 64] as u8;
+                            self.buffer[y][x] ^= true;
                         }
                     }
                 }
@@ -111,11 +109,13 @@ impl CPU {
             }
         }
     }
+
     fn fetch(&self, memory: &mut Memory) -> u16 {
         let part1 = memory.get_from_index(self.pc.into());
         let part2 = memory.get_from_index((self.pc + 1).into());
         return u16::from(part1) << 8 | u16::from(part2);
     }
+
     fn decode(&self, opcode: u16) -> Instructions {
         match opcode & 0xf000 {
             0x0000 => {
@@ -161,13 +161,16 @@ impl CPU {
             }
         }
     }
+
     pub fn get_flags(&self) -> &u16 {
         return &self.flags;
     }
+
     pub fn remove_flag(&mut self, flag: u16) {
         self.flags &= !flag;
     }
-    pub fn get_cpu_buffer(&self) -> &[[bool; 64]; 32] {
-        return &self.screen_buffer;
+
+    pub fn get_buffer(&self) -> &[[bool; 64]; 32] {
+        return &self.buffer;
     }
 }
