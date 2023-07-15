@@ -1,5 +1,7 @@
+use std::thread;
 use std::time::Duration;
 use sdl2::event::Event;
+
 mod interpreter;
 
 #[cfg(test)]
@@ -22,6 +24,12 @@ fn main() {
         cpu.execute(&mut memory);
         // cpu.print_debug();
 
+        if cpu.get_flags() & 0xF != 0 {
+            let buffer = cpu.get_buffer();
+            display.draw(buffer);
+            cpu.remove_flag(0xF);
+        }
+
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} => {
@@ -29,12 +37,6 @@ fn main() {
                 },
                 _ => {}
             }
-        }
-
-        if cpu.get_flags() & 0xA != 0 {
-            let buffer = cpu.get_buffer();
-            display.draw(buffer);
-            cpu.remove_flag(0xA);
         }
 
        std::thread::sleep(Duration::from_millis(1000));

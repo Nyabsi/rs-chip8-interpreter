@@ -69,7 +69,7 @@ impl CPU {
                     }
                 }
                 self.pc += 2;
-                self.flags |= 0xA;
+                self.flags |= 0xF;
             },
             Instructions::Instruction1nnn => {
                 let nnn: u16 = opcode & 0x0fff;
@@ -110,7 +110,7 @@ impl CPU {
                 }
 
                 self.pc += 2;
-                self.flags |= 0xA;
+                self.flags |= 0xF;
             },
             Instructions::Instruction7xnn => {
                 let nn = (opcode & 0x00ff) as u8;
@@ -118,8 +118,7 @@ impl CPU {
                 self.pc += 2;
             },
             Instructions::Instructionfx33 => {
-                let zerox6 = (opcode & 0x0f00) >> 8;
-                let v = self.v[zerox6 as usize];
+                let v = self.v[x as usize];
                 memory.set_from_index(self.i as usize, v / 100);
                 memory.set_from_index(self.i as usize + 1, (v % 100) / 10);
                 memory.set_from_index(self.i as usize  + 2, v % 10);
@@ -194,15 +193,15 @@ impl CPU {
             },
             Instructions::Instructionfx55 => {
                 let x = ((opcode & 0x0f00) >> 8) as usize;
-                for suklaamuna in 0..=x {
-                    memory.set_from_index(self.i as usize + suklaamuna, self.v[x as usize]);
+                for i in 0..=x {
+                    memory.set_from_index(self.i as usize + i, self.v[x as usize]);
                 }
                 self.pc += 2;
             },
             Instructions::Instructionfx65 => {
                 let x = ((opcode & 0x0f00) >> 8) as usize;
-                for suklaamuna in 0..=x {
-                    self.v[suklaamuna as usize] = memory.get_from_index(self.i as usize + suklaamuna);
+                for i in 0..=x {
+                    self.v[i as usize] = memory.get_from_index(self.i as usize + i);
                 }
                 self.pc += 2;
             }
