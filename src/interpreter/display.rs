@@ -18,7 +18,7 @@ impl Display{
         let video = sdl_context.video().unwrap();
 
         let window = video
-            .window("SDL2 Window", WIDTH * SCALE_FACTOR, HEIGHT * SCALE_FACTOR)
+            .window("CHIP-8 Interpreter", WIDTH * SCALE_FACTOR, HEIGHT * SCALE_FACTOR)
             .position_centered()
             .opengl()
             .build()
