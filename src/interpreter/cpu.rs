@@ -11,6 +11,11 @@ enum Instructions {
     InstructionRenderDisplay = 0x6,
     InstructionAddToRegister = 0x7,
     InstructionBinaryDecimalConversion = 0x8,
+    InstructionConditionalBranch3000 = 0x9,
+    InstructionConditionalBranch4000 = 0x10,
+    InstructionConditionalBranch5000 = 0x11,
+    InstructionConditionalBranch9000 = 0x12,
+    InstructionCallReturn = 0x13,
 }
 
 pub struct CPU {
@@ -97,7 +102,8 @@ impl CPU {
             Instructions::InstructionAddToRegister => {
                 let vx = ((opcode & 0x0f00) >> 8) as u8;
                 let nn = (opcode & 0x00ff) as u8;
-                self.v[vx as usize] += nn;
+                // prevent overflow
+                self.v[vx as usize] = self.v[vx as usize].wrapping_add(nn) & 0xFF;
                 self.pc += 2;
             },
             Instructions::InstructionBinaryDecimalConversion => {
@@ -105,6 +111,31 @@ impl CPU {
                 memory.set_from_index(self.i as usize, self.v[vx as usize] / 100);
                 memory.set_from_index((self.i + 1) as usize, (self.v[vx as usize] / 10) % 10);
                 memory.set_from_index((self.i  + 2) as usize, (self.v[vx as usize] % 100) % 10);
+                self.pc += 2;
+            },
+            Instructions::InstructionConditionalBranch3000 => {
+                let vx = ((opcode & 0x0f00) >> 8) as u8;
+                let nn = (opcode & 0x00ff) as u8;
+                if self.v[vx as usize] == nn { self.pc += 4; } else { self.pc += 2; }
+            }
+            Instructions::InstructionConditionalBranch4000 => {
+                let vx = ((opcode & 0x0f00) >> 8) as u8;
+                let nn = (opcode & 0x00ff) as u8;
+                if self.v[vx as usize] != nn { self.pc += 4; } else { self.pc += 2; }
+            },
+            Instructions::InstructionConditionalBranch5000 => {
+                let vx = ((opcode & 0x0f00) >> 8) as u8;
+                let vy = ((opcode & 0x00f0) >> 4) as u8;
+                if self.v[vx as usize] == self.v[vy as usize] { self.pc += 4; } else { self.pc += 2; }
+            },
+            Instructions::InstructionConditionalBranch9000 => {
+                let vx = ((opcode & 0x0f00) >> 8) as u8;
+                let vy = ((opcode & 0x00f0) >> 4) as u8;
+                if self.v[vx as usize] != self.v[vy as usize] { self.pc += 4; } else { self.pc += 2; }
+            },
+            Instructions::InstructionCallReturn => {
+                self.sp -= 1; // pop stack
+                self.pc = self.stack[self.sp as usize];
                 self.pc += 2;
             }
         }
@@ -122,7 +153,10 @@ impl CPU {
                 match opcode & 0x00ff {
                     0x00E0 => {
                         Instructions::InstructionClearScreen
-                    }
+                    },
+                    0x00EE => {
+                        Instructions::InstructionCallReturn
+                    },
                     _ => {
                         panic!("Unknown Instruction (0x0000 family), opcode: 0x{:X}", opcode);
                     }
@@ -134,12 +168,24 @@ impl CPU {
             0x2000 => {
                 Instructions::InstructionCallSubroutine
             },
+            0x3000 => {
+                Instructions::InstructionConditionalBranch3000
+            },
+            0x4000 => {
+                Instructions::InstructionConditionalBranch4000
+            },
+            0x5000 => {
+                Instructions::InstructionConditionalBranch5000
+            },
             0x6000 => {
                 Instructions::InstructionSetRegister
             },
             0x7000 => {
                 Instructions::InstructionAddToRegister
-            }
+            },
+            0x9000 => {
+                Instructions::InstructionConditionalBranch9000
+            },
             0xA000 => {
                 Instructions::InstructionSetRegisterIndex
             },
