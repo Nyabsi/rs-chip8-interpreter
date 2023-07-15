@@ -39,6 +39,6 @@ fn main() {
             }
         }
 
-       std::thread::sleep(Duration::from_millis(1000));
+        ::std::thread::sleep(::std::time::Duration::new(0, 1_000_000_000u32 / 60));
     }
 }

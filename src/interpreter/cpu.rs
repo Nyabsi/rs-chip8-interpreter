@@ -1,5 +1,7 @@
 // This file manages the CPU of the interpreter.
 
+use rand::Rng;
+
 use super::memory::Memory;
 
 enum Instructions {
@@ -27,27 +29,37 @@ enum Instructions {
     Instruction8xye = 0x22, // Shift (Left)
     Instructionfx55 = 0x23, // Store Memory
     Instructionfx65 = 0x24, // Load Memory
+    Instructionfx29 = 0x25, // Font character
+    Instructioncxnn = 0x26, // Random
+    Instructionbnnn = 0x27, // Jump with offset
 }
 
+const WIDTH: usize = 64;
+const HEIGHT: usize = 32;
+
 pub struct CPU {
-    buffer: [[bool; 64]; 32],
+    buffer: [[bool; WIDTH]; HEIGHT],
     pc: u16,
     i: u16,
     sp: u16,
     stack: [u16; 16],
     v: [u8; 16], // 15 variable registers, 1 flag register.
+    delay_timer: u8,
+    sound_timer: u8,
     flags: u16, // my specific flags which indicate what the processor is doing.
 }
 
 impl CPU {
     pub fn new() -> Self {
         CPU {
-            buffer: [[false; 64]; 32],
+            buffer: [[false; WIDTH]; HEIGHT],
             pc: 0x200,
             i: 0x0,
             sp: 0x0,
             stack: [0; 16],
             v: [0; 16],
+            delay_timer: 0x0,
+            sound_timer: 0x0,
             flags: 0x0,
         }
     }
@@ -82,8 +94,8 @@ impl CPU {
                 self.pc = nnn;
             },
             Instructions::Instruction6xnn => {
-                let nn = (opcode & 0x00ff) as u8;
-                self.v[x as usize] = nn;
+                let nn = opcode & 0x00ff;
+                self.v[x as usize] = nn as u8;
                 self.pc += 2;
             },
             Instructions::Instructionannn => {
@@ -92,7 +104,7 @@ impl CPU {
                 self.pc += 2;
             },
             Instructions::Instructiondxyn => {
-                let n = ((opcode & 0x000f)) as usize;
+                let n = (opcode & 0x000f) as usize;
                 let init_x = self.v[x as usize] as usize;
                 let init_y = self.v[y as usize] as usize;
                 
@@ -100,10 +112,10 @@ impl CPU {
                 for i in 0..n {
                     let pixel: u16 = memory.get_from_index(self.i as usize + i as usize) as u16;
                     for j in 0..8 {
-                        let x = (init_x + j) % 64;
-                        let y = (init_y + i) % 32;
+                        let x = (init_x + j) % WIDTH;
+                        let y = (init_y + i) % HEIGHT;
                         if pixel & 0x80 >> j != 0 {
-                            self.v[0xF] |= self.buffer[y % 32][x % 64] as u8;
+                            self.v[0xF] |= self.buffer[y % HEIGHT][x % WIDTH] as u8;
                             self.buffer[y][x] ^= true;
                         }
                     }
@@ -113,8 +125,8 @@ impl CPU {
                 self.flags |= 0xF;
             },
             Instructions::Instruction7xnn => {
-                let nn = (opcode & 0x00ff) as u8;
-                self.v[x as usize] = self.v[x as usize].wrapping_add(nn) & 0xFF;
+                let nn = opcode & 0x00ff;
+                self.v[x as usize] = self.v[x as usize].wrapping_add(nn as u8) & 0xFF;
                 self.pc += 2;
             },
             Instructions::Instructionfx33 => {
@@ -125,12 +137,12 @@ impl CPU {
                 self.pc += 2;
             },
             Instructions::Instruction3xnn => {
-                let nn = (opcode & 0x00ff) as u8;
-                if self.v[x as usize] == nn { self.pc += 4; } else { self.pc += 2; }
+                let nn = opcode & 0x00ff;
+                if self.v[x as usize] == nn as u8 { self.pc += 4; } else { self.pc += 2; }
             }
             Instructions::Instruction4xnn => {
-                let nn = (opcode & 0x00ff) as u8;
-                if self.v[x as usize] != nn { self.pc += 4; } else { self.pc += 2; }
+                let nn = opcode & 0x00ff;
+                if self.v[x as usize] != nn as u8 { self.pc += 4; } else { self.pc += 2; }
             },
             Instructions::Instruction5xy0 => {
                 if self.v[x as usize] == self.v[y as usize] { self.pc += 4; } else { self.pc += 2; }
@@ -139,7 +151,7 @@ impl CPU {
                 if self.v[x as usize] != self.v[y as usize] { self.pc += 4; } else { self.pc += 2; }
             },
             Instructions::Instruction00ee => {
-                self.sp -= 1; // pop stack
+                self.sp = self.sp.wrapping_sub(1);
                 self.pc = self.stack[self.sp as usize];
                 self.pc += 2;
             },
@@ -176,7 +188,6 @@ impl CPU {
                 self.pc += 2;
             },
             Instructions::Instruction8xy6 => {
-        
                 // TODO: make a configuration, code below will fail tests because of newer logic.
                 // self.v[x as usize] = self.v[y as usize];
                 self.v[0xF] = if self.v[x as usize] % 2 == 1 { 1 } else { 0 };
@@ -184,7 +195,6 @@ impl CPU {
                 self.pc += 2;
             },
             Instructions::Instruction8xye => {
-        
                 // TODO: make a configuration, code below will fail tests because of newer logic.
                 // self.v[x as usize] = self.v[y as usize];
                 self.v[0xF] = if self.v[x as usize] % 2 == 1 { 1 } else { 0 };
@@ -192,17 +202,35 @@ impl CPU {
                 self.pc += 2;
             },
             Instructions::Instructionfx55 => {
-                let x = ((opcode & 0x0f00) >> 8) as usize;
                 for i in 0..=x {
-                    memory.set_from_index(self.i as usize + i, self.v[x as usize]);
+                    memory.set_from_index(self.i as usize + i as usize, self.v[x as usize]);
                 }
                 self.pc += 2;
             },
             Instructions::Instructionfx65 => {
-                let x = ((opcode & 0x0f00) >> 8) as usize;
                 for i in 0..=x {
-                    self.v[i as usize] = memory.get_from_index(self.i as usize + i);
+                    self.v[i as usize] = memory.get_from_index(self.i as usize + i as usize);
                 }
+                self.pc += 2;
+            },
+            Instructions::Instructionfx29 => {
+                self.i = (self.v[x as usize] * 5) as u16;
+                self.pc += 2;
+            },
+            Instructions::Instructioncxnn => {
+                let nn = opcode & 0x00ff;
+                // I suppose this will suffice, honestly.
+                self.v[x as usize] = (rand::thread_rng().gen::<u16>() & nn) as u8;
+                self.pc += 2;
+            },
+            Instructions::Instructionbnnn => {
+                // TODO: for compability reasons i'll implement both the old and new way, though I don't have way to toggle them yet.
+                // let nnn = opcode & 0x0fff;
+                // self.pc = nnn;
+                // self.v[0] = nnn as u8;
+                let nn = opcode & 0x00ff;
+                self.pc = nn; // jump
+                self.v[x as usize] = nn as u8;
                 self.pc += 2;
             }
         }
@@ -290,6 +318,12 @@ impl CPU {
             0xA000 => {
                 Instructions::Instructionannn
             },
+            0xB000 => {
+                Instructions::Instructionbnnn
+            },
+            0xC000 => {
+                Instructions::Instructioncxnn
+            }
             0xD000 => {
                 Instructions::Instructiondxyn
             },
@@ -297,6 +331,9 @@ impl CPU {
                 match opcode & 0x00ff {
                     0x0033 => {
                         Instructions::Instructionfx33
+                    },
+                    0x0029 => {
+                        Instructions::Instructionfx29
                     },
                     0x0055 => {
                         Instructions::Instructionfx55
@@ -323,7 +360,7 @@ impl CPU {
         self.flags &= !flag;
     }
 
-    pub fn get_buffer(&self) -> &[[bool; 64]; 32] {
+    pub fn get_buffer(&self) -> &[[bool; WIDTH]; HEIGHT] {
         return &self.buffer;
     }
 
