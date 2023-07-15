@@ -25,6 +25,8 @@ enum Instructions {
     Instruction8xy6 = 0x20, // Shift (Right)
     Instruction8xy7 = 0x21, // Substract (reverse)
     Instruction8xye = 0x22, // Shift (Left)
+    Instructionfx55 = 0x23, // Store Memory
+    Instructionfx65 = 0x24, // Load Memory
 }
 
 pub struct CPU {
@@ -54,6 +56,11 @@ impl CPU {
     pub fn execute(&mut self, memory: &mut Memory) {
         let opcode = self.fetch(memory);
         let instruction = self.decode(opcode);
+
+        // XY
+        let x = (opcode & 0x0f00) >> 8;
+        let y = (opcode & 0x00f0) >> 4;
+
         match instruction {
             Instructions::Instruction00e0 => {
                 for y in 0..32 {
@@ -75,9 +82,8 @@ impl CPU {
                 self.pc = nnn;
             },
             Instructions::Instruction6xnn => {
-                let vx = ((opcode & 0x0f00) >> 8) as u8;
                 let nn = (opcode & 0x00ff) as u8;
-                self.v[vx as usize] = nn;
+                self.v[x as usize] = nn;
                 self.pc += 2;
             },
             Instructions::Instructionannn => {
@@ -86,11 +92,9 @@ impl CPU {
                 self.pc += 2;
             },
             Instructions::Instructiondxyn => {
-                let vx = ((opcode & 0x0f00) >> 8) as u8;
-                let vy = ((opcode & 0x00f0) >> 4) as u8;
                 let n = ((opcode & 0x000f)) as usize;
-                let init_x = self.v[vx as usize] as usize;
-                let init_y = self.v[vy as usize] as usize;
+                let init_x = self.v[x as usize] as usize;
+                let init_y = self.v[y as usize] as usize;
                 
                 self.v[0xF] = 0;
                 for i in 0..n {
@@ -109,38 +113,31 @@ impl CPU {
                 self.flags |= 0xA;
             },
             Instructions::Instruction7xnn => {
-                let vx = ((opcode & 0x0f00) >> 8) as u8;
                 let nn = (opcode & 0x00ff) as u8;
-                // prevent overflow
-                self.v[vx as usize] = self.v[vx as usize].wrapping_add(nn) & 0xFF;
+                self.v[x as usize] = self.v[x as usize].wrapping_add(nn) & 0xFF;
                 self.pc += 2;
             },
             Instructions::Instructionfx33 => {
-                let vx = (opcode & 0x0f00 >> 8) as u8;
-                memory.set_from_index(self.i as usize, self.v[vx as usize] / 100);
-                memory.set_from_index((self.i + 1) as usize, (self.v[vx as usize] / 10) % 10);
-                memory.set_from_index((self.i  + 2) as usize, (self.v[vx as usize] % 100) % 10);
+                let zerox6 = (opcode & 0x0f00) >> 8;
+                let v = self.v[zerox6 as usize];
+                memory.set_from_index(self.i as usize, v / 100);
+                memory.set_from_index(self.i as usize + 1, (v % 100) / 10);
+                memory.set_from_index(self.i as usize  + 2, v % 10);
                 self.pc += 2;
             },
             Instructions::Instruction3xnn => {
-                let vx = ((opcode & 0x0f00) >> 8) as u8;
                 let nn = (opcode & 0x00ff) as u8;
-                if self.v[vx as usize] == nn { self.pc += 4; } else { self.pc += 2; }
+                if self.v[x as usize] == nn { self.pc += 4; } else { self.pc += 2; }
             }
             Instructions::Instruction4xnn => {
-                let vx = ((opcode & 0x0f00) >> 8) as u8;
                 let nn = (opcode & 0x00ff) as u8;
-                if self.v[vx as usize] != nn { self.pc += 4; } else { self.pc += 2; }
+                if self.v[x as usize] != nn { self.pc += 4; } else { self.pc += 2; }
             },
             Instructions::Instruction5xy0 => {
-                let vx = ((opcode & 0x0f00) >> 8) as u8;
-                let vy = ((opcode & 0x00f0) >> 4) as u8;
-                if self.v[vx as usize] == self.v[vy as usize] { self.pc += 4; } else { self.pc += 2; }
+                if self.v[x as usize] == self.v[y as usize] { self.pc += 4; } else { self.pc += 2; }
             },
             Instructions::Instruction9xy0 => {
-                let vx = ((opcode & 0x0f00) >> 8) as u8;
-                let vy = ((opcode & 0x00f0) >> 4) as u8;
-                if self.v[vx as usize] != self.v[vy as usize] { self.pc += 4; } else { self.pc += 2; }
+                if self.v[x as usize] != self.v[y as usize] { self.pc += 4; } else { self.pc += 2; }
             },
             Instructions::Instruction00ee => {
                 self.sp -= 1; // pop stack
@@ -148,65 +145,65 @@ impl CPU {
                 self.pc += 2;
             },
             Instructions::Instruction8xy2 => {
-                let vx = ((opcode & 0x0f00) >> 8) as u8;
-                let vy = ((opcode & 0x00f0) >> 4) as u8;
-                self.v[vx as usize] = self.v[vx as usize] & self.v[vy as usize];
+                self.v[x as usize] = self.v[x as usize] & self.v[y as usize];
                 self.pc += 2;
             },
             Instructions::Instruction8xy1 => {
-                let vx = ((opcode & 0x0f00) >> 8) as u8;
-                let vy = ((opcode & 0x00f0) >> 4) as u8;
-                self.v[vx as usize] = self.v[vx as usize] | self.v[vy as usize];
+                self.v[x as usize] = self.v[x as usize] | self.v[y as usize];
                 self.pc += 2;
             },
             Instructions::Instruction8xy3 => {
-                let vx = ((opcode & 0x0f00) >> 8) as u8;
-                let vy = ((opcode & 0x00f0) >> 4) as u8;
-                self.v[vx as usize] = self.v[vx as usize] ^ self.v[vy as usize];
+                self.v[x as usize] = self.v[x as usize] ^ self.v[y as usize];
                 self.pc += 2;
             },
             Instructions::Instruction8xy4 => {
-                let vx = ((opcode & 0x0f00) >> 8) as u8;
-                let vy = ((opcode & 0x00f0) >> 4) as u8;
-                let sum = self.v[vx as usize] as u32 + self.v[vy as usize] as u32;
+                let sum = self.v[x as usize] as u32 + self.v[y as usize] as u32;
                 self.v[0xF] = if sum > 0xFF { 1 } else { 0 };
-                self.v[vx as usize] = self.v[vx as usize].wrapping_add(self.v[vy as usize]) & 0xFF;
+                self.v[x as usize] = self.v[x as usize].wrapping_add(self.v[y as usize]) & 0xFF;
                 self.pc += 2;
             },
             Instructions::Instruction8xy0 => {
-                let vx = ((opcode & 0x0f00) >> 8) as u8;
-                let vy = ((opcode & 0x00f0) >> 4) as u8;
-                self.v[vx as usize] = self.v[vy as usize];
+                self.v[x as usize] = self.v[y as usize];
                 self.pc += 2;
             },
             Instructions::Instruction8xy5 => {
-                let vx = ((opcode & 0x0f00) >> 8) as u8;
-                let vy = ((opcode & 0x00f0) >> 4) as u8;
-                self.v[0xF] = if self.v[vx as usize] > self.v[vy as usize] { 0 } else { 1 };
-                self.v[vx as usize] = self.v[vx as usize].wrapping_sub(self.v[vy as usize]) & 0xFF;
+                self.v[0xF] = if self.v[x as usize] > self.v[y as usize] { 0 } else { 1 };
+                self.v[x as usize] = self.v[x as usize].wrapping_sub(self.v[y as usize]) & 0xFF;
                 self.pc += 2;
             },
             Instructions::Instruction8xy7 => {
-                let vx = ((opcode & 0x0f00) >> 8) as u8;
-                let vy = ((opcode & 0x00f0) >> 4) as u8;
-                self.v[0xF] = if self.v[vy as usize] > self.v[vx as usize] { 0 } else { 1 };
-                self.v[vx as usize] = self.v[vy as usize].wrapping_sub(self.v[vx as usize]) & 0xFF;
+                self.v[0xF] = if self.v[y as usize] > self.v[x as usize] { 0 } else { 1 };
+                self.v[x as usize] = self.v[y as usize].wrapping_sub(self.v[x as usize]) & 0xFF;
                 self.pc += 2;
             },
             Instructions::Instruction8xy6 => {
-                let vx = ((opcode & 0x0f00) >> 8) as u8;
-                let vy = ((opcode & 0x00f0) >> 4) as u8;
+        
                 // TODO: make a configuration, code below will fail tests because of newer logic.
-                // self.v[vx as usize] = self.v[vy as usize];
-                self.v[0xF] = if self.v[vx as usize] >> 1 == 1 { 1 } else { 0 };
+                // self.v[x as usize] = self.v[y as usize];
+                self.v[0xF] = if self.v[x as usize] % 2 == 1 { 1 } else { 0 };
+                self.v[x as usize] = self.v[x as usize] >> 1;
                 self.pc += 2;
             },
             Instructions::Instruction8xye => {
-                let vx = ((opcode & 0x0f00) >> 8) as u8;
-                let vy = ((opcode & 0x00f0) >> 4) as u8;
+        
                 // TODO: make a configuration, code below will fail tests because of newer logic.
-                // self.v[vx as usize] = self.v[vy as usize];
-                self.v[0xF] = if self.v[vx as usize] << 1 == 1 { 1 } else { 0 };
+                // self.v[x as usize] = self.v[y as usize];
+                self.v[0xF] = if self.v[x as usize] % 2 == 1 { 1 } else { 0 };
+                self.v[x as usize] = self.v[x as usize] << 1;
+                self.pc += 2;
+            },
+            Instructions::Instructionfx55 => {
+                let x = ((opcode & 0x0f00) >> 8) as usize;
+                for suklaamuna in 0..=x {
+                    memory.set_from_index(self.i as usize + suklaamuna, self.v[x as usize]);
+                }
+                self.pc += 2;
+            },
+            Instructions::Instructionfx65 => {
+                let x = ((opcode & 0x0f00) >> 8) as usize;
+                for suklaamuna in 0..=x {
+                    self.v[suklaamuna as usize] = memory.get_from_index(self.i as usize + suklaamuna);
+                }
                 self.pc += 2;
             }
         }
@@ -301,6 +298,12 @@ impl CPU {
                 match opcode & 0x00ff {
                     0x0033 => {
                         Instructions::Instructionfx33
+                    },
+                    0x0055 => {
+                        Instructions::Instructionfx55
+                    },
+                    0x0065 => {
+                        Instructions::Instructionfx65
                     }
                     _ => {
                         panic!("Unknown Instruction (0xF000 family), opcode: 0x{:X}", opcode);
@@ -323,5 +326,13 @@ impl CPU {
 
     pub fn get_buffer(&self) -> &[[bool; 64]; 32] {
         return &self.buffer;
+    }
+
+    pub fn print_debug(&self) {
+        print!("V0 = 0x{:X} V1 = 0x{:X} V2 = 0x{:X} V3 = 0x{:X}\n", self.v[0], self.v[1], self.v[2], self.v[3]);
+        print!("V4 = 0x{:X} V5 = 0x{:X} V6 = 0x{:X} V7 = 0x{:X}\n", self.v[4], self.v[5], self.v[6], self.v[7]);
+        print!("V8 = 0x{:X} V9 = 0x{:X} V10 = 0x{:X} V11 = 0x{:X}\n", self.v[8], self.v[9], self.v[10], self.v[11]);
+        print!("V12 = 0x{:X} V13 = 0x{:X} V14 = 0x{:X} Flag = 0x{:X}\n", self.v[12], self.v[13], self.v[14], self.v[15]);
+        print!("I = 0x{:X} PC = 0x{:X} SP = 0x{:X}\n", self.i,  self.pc, self.sp);
     }
 }

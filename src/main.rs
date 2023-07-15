@@ -20,6 +20,7 @@ fn main() {
     'running: loop {
 
         cpu.execute(&mut memory);
+        // cpu.print_debug();
 
         for event in event_pump.poll_iter() {
             match event {
