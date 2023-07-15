@@ -1,7 +1,6 @@
 // This file manages the memory of the interpreter.
 use std::fs::File;
 use std::io::Read;
-use core::ascii;
 use std::ops::Index;
 
 const FONTSET: [u8; 80] = [
@@ -53,6 +52,7 @@ impl Memory {
         print!("ROM loaded!\n");
     }
     // I am adding this to validate the memory actually loads properly.
+    #[allow(dead_code)]
     pub fn dump_memory(&mut self) -> String {
         return self.ram.iter().map(|&x| format!("{:02X}", x)).collect();
     }

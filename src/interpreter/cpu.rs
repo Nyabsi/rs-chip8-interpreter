@@ -50,28 +50,28 @@ impl CPU {
                 }
                 self.pc += 2;
                 self.flags |= 0xA;
-            }
+            },
             Instructions::InstructionJump => {
                 let nnn: u16 = opcode & 0x0fff;
                 self.pc = nnn;
-            }
+            },
             Instructions::InstructionCallSubroutine => {
                 let nnn: u16 = opcode & 0x0fff;
                 self.stack[self.sp as usize] = self.pc;
                 self.sp += 1;
                 self.pc = nnn;
-            }
+            },
             Instructions::InstructionSetRegister => {
                 let vx = ((opcode & 0x0f00) >> 8) as u8;
                 let nn = (opcode & 0x00ff) as u8;
                 self.v[vx as usize] = nn;
                 self.pc += 2;
-            }
+            },
             Instructions::InstructionSetRegisterIndex => {
                 let nnn: u16 = opcode & 0x0fff;
                 self.i = nnn;
                 self.pc += 2;
-            }
+            },
             Instructions::InstructionRenderDisplay => {
                 let vx = ((opcode & 0x0f00) >> 8) as u8;
                 let vy = ((opcode & 0x00f0) >> 4) as u8;
@@ -94,22 +94,19 @@ impl CPU {
 
                 self.pc += 2;
                 self.flags |= 0xA;
-            }
+            },
             Instructions::InstructionAddToRegister => {
                 let vx = ((opcode & 0x0f00) >> 8) as u8;
                 let nn = (opcode & 0x00ff) as u8;
                 self.v[vx as usize] += nn;
                 self.pc += 2;
             }
-            _ => {
-                panic!("Unimplemented Instruction, 0x{:X} called!", opcode);
-            }
         }
     }
     fn fetch(&self, memory: &mut Memory) -> u16 {
-        let lP = memory.get_from_index(self.pc.into());
-        let hP = memory.get_from_index((self.pc + 1).into());
-        return u16::from(lP) << 8 | u16::from(hP);
+        let part1 = memory.get_from_index(self.pc.into());
+        let part2 = memory.get_from_index((self.pc + 1).into());
+        return u16::from(part1) << 8 | u16::from(part2);
     }
     fn decode(&self, opcode: u16) -> Instructions {
         match opcode & 0xf000 {
