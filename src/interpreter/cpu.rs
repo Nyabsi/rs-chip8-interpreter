@@ -237,9 +237,9 @@ impl CPU {
     }
 
     fn fetch(&self, memory: &mut Memory) -> u16 {
-        let part1 = memory.get_from_index(self.pc.into());
-        let part2 = memory.get_from_index((self.pc + 1).into());
-        return u16::from(part1) << 8 | u16::from(part2);
+        let part1 = memory.get_from_index(self.pc as usize) as u16;
+        let part2 = memory.get_from_index((self.pc + 1) as usize) as u16;
+        return part1 << 8 | part2;
     }
 
     fn decode(&self, opcode: u16) -> Instructions {
