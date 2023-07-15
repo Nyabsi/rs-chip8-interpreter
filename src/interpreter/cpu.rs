@@ -32,6 +32,11 @@ enum Instructions {
     Instructionfx29 = 0x25, // Font character
     Instructioncxnn = 0x26, // Random
     Instructionbnnn = 0x27, // Jump with offset
+    Instructionfx1e = 0x28, // Add to index
+    Instructionfx0a = 0x29, // Get key
+    Instructionfx07 = 0x30, // Timer (Delay) Fetch
+    Instructionfx15 = 0x31, // Timer (Delay) Set
+    Instructionfx18 = 0x32, // Timer (Sound) Set
 }
 
 const WIDTH: usize = 64;
@@ -232,6 +237,27 @@ impl CPU {
                 self.pc = nn; // jump
                 self.v[x as usize] = nn as u8;
                 self.pc += 2;
+            },
+            Instructions::Instructionfx1e => {
+                // We do not care if it overflows, it is actually a good thing it it does.
+                self.i = self.i.wrapping_add(self.v[x as usize] as u16); // & 0x1000
+                self.pc += 2;
+            },
+            Instructions::Instructionfx0a => {
+                print!("0xFX0A has not been implemented, we are in a loop!\n");
+                self.pc -= 1;
+            },
+            Instructions::Instructionfx07 => {
+                self.v[x as usize] = self.delay_timer;
+                self.pc += 2;
+            },
+            Instructions::Instructionfx15 => {
+                self.delay_timer = self.v[x as usize];
+                self.pc += 2;
+            },
+            Instructions::Instructionfx18 => {
+                self.sound_timer = self.v[x as usize];
+                self.pc += 2;
             }
         }
     }
@@ -340,7 +366,22 @@ impl CPU {
                     },
                     0x0065 => {
                         Instructions::Instructionfx65
-                    }
+                    },
+                    0x001E => {
+                        Instructions::Instructionfx1e
+                    },
+                    0x000A => {
+                        Instructions::Instructionfx0a
+                    },
+                    0x0007 => {
+                        Instructions::Instructionfx07
+                    },
+                    0x0015 => {
+                        Instructions::Instructionfx15
+                    },
+                    0x0018 => {
+                        Instructions::Instructionfx18
+                    },
                     _ => {
                         panic!("Unknown Instruction (0xF000 family), opcode: 0x{:X}", opcode);
                     }
@@ -362,6 +403,12 @@ impl CPU {
 
     pub fn get_buffer(&self) -> &[[bool; WIDTH]; HEIGHT] {
         return &self.buffer;
+    }
+
+    pub fn decrement_timer(&mut self) {
+        if self.delay_timer > 0 {
+            self.delay_timer -= 1;
+        }
     }
 
     pub fn print_debug(&self) {
