@@ -198,7 +198,7 @@ impl CPU {
                 let vy = ((opcode & 0x00f0) >> 4) as u8;
                 // TODO: figure out, if this is actually even needed.
                 self.v[vx as usize] = self.v[vy as usize];
-                self.v[0xF] = if self.v[vx as usize] << 1 == 1 { 1 } else { 0 };
+                self.v[0xF] = if self.v[vx as usize] >> 1 == 1 { 1 } else { 0 };
                 self.pc += 2;
             },
             Instructions::Instruction8xye => {
@@ -206,7 +206,7 @@ impl CPU {
                 let vy = ((opcode & 0x00f0) >> 4) as u8;
                 // TODO: figure out, if this is actually even needed.
                 self.v[vx as usize] = self.v[vy as usize];
-                self.v[0xF] = if self.v[vx as usize] >> 1 == 1 { 1 } else { 0 };
+                self.v[0xF] = if self.v[vx as usize] << 1 == 1 { 1 } else { 0 };
                 self.pc += 2;
             }
         }
