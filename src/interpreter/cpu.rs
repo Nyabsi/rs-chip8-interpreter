@@ -22,7 +22,9 @@ enum Instructions {
     Instruction8xy3 = 0x17, // Logical XOR
     Instruction8xy4 = 0x18, // Sum
     Instruction8xy5 = 0x19, // Substract
-    Instruction8xy7 = 0x20, // Substract (reverse)
+    Instruction8xy6 = 0x20, // Shift (Right)
+    Instruction8xy7 = 0x21, // Substract (reverse)
+    Instruction8xye = 0x22, // Shift (Left)
 }
 
 pub struct CPU {
@@ -190,6 +192,22 @@ impl CPU {
                 self.v[0xF] = if self.v[vy as usize] > self.v[vx as usize] { 0 } else { 1 };
                 self.v[vx as usize] = self.v[vy as usize].wrapping_sub(self.v[vx as usize]) & 0xFF;
                 self.pc += 2;
+            },
+            Instructions::Instruction8xy6 => {
+                let vx = ((opcode & 0x0f00) >> 8) as u8;
+                let vy = ((opcode & 0x00f0) >> 4) as u8;
+                // TODO: figure out, if this is actually even needed.
+                self.v[vx as usize] = self.v[vy as usize];
+                self.v[0xF] = if self.v[vx as usize] << 1 == 1 { 1 } else { 0 };
+                self.pc += 2;
+            },
+            Instructions::Instruction8xye => {
+                let vx = ((opcode & 0x0f00) >> 8) as u8;
+                let vy = ((opcode & 0x00f0) >> 4) as u8;
+                // TODO: figure out, if this is actually even needed.
+                self.v[vx as usize] = self.v[vy as usize];
+                self.v[0xF] = if self.v[vx as usize] >> 1 == 1 { 1 } else { 0 };
+                self.pc += 2;
             }
         }
     }
@@ -256,9 +274,15 @@ impl CPU {
                     0x0005 => {
                         Instructions::Instruction8xy5
                     },
+                    0x006 => {
+                        Instructions::Instruction8xy6
+                    },
                     0x0007 => {
                         Instructions::Instruction8xy7
                     },
+                    0x00e => {
+                        Instructions::Instruction8xye
+                    }
                     _ => {
                         panic!("Unknown Instruction (0x8000 family), opcode: 0x{:X}", opcode);
                     }
