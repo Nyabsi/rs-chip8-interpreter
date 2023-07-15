@@ -1,6 +1,6 @@
 // This file manages the CPU of the interpreter.
 
-use super::{memory::Memory, screen::Screen};
+use super::memory::Memory;
 
 enum Instructions {
     InstructionUnknown = 0,
@@ -8,10 +8,13 @@ enum Instructions {
     InstructionJump = 0x2,
     InstructionCallSubroutine = 0x3,
     InstructionSetRegister = 0x4,
+    InstructionSetRegisterIndex = 0x5,
+    InstructionRenderDisplay = 0x6,
+    InstructionAddToRegister = 0x7,
 }
 
 pub struct CPU {
-    screen_buffer: [[u8; 64]; 32],
+    screen_buffer: [[bool; 64]; 32],
     pc_reg: u16,
     i_reg: u16,
     sp_reg: u16,
@@ -23,7 +26,7 @@ pub struct CPU {
 impl CPU {
     pub fn new() -> Self {
         CPU {
-            screen_buffer: [[0; 64]; 32],
+            screen_buffer: [[false; 64]; 32],
             pc_reg: 0x0,
             i_reg: 0x0,
             sp_reg: 0x0,
@@ -43,11 +46,11 @@ impl CPU {
             Instructions::InstructionClearScreen => {
                 for y in 0..32 {
                     for x in 0..64 {
-                        self.screen_buffer[y][x] = 0;
+                        self.screen_buffer[y][x] = false;
                     }
                 }
                 self.pc_reg += 2;
-                self.flags |= 0xA; // this is just a quick test.
+                self.flags |= 0xA;
             }
             Instructions::InstructionJump => {
                 let nnn: u16 = opcode & 0x0fff;
@@ -55,7 +58,7 @@ impl CPU {
             }
             Instructions::InstructionCallSubroutine => {
                 let nnn: u16 = opcode & 0x0fff;
-                self.stack[self.sp_reg as usize] = nnn;
+                self.stack[self.sp_reg as usize] = self.pc_reg;
                 self.sp_reg += 1;
                 self.pc_reg = nnn;
             }
@@ -63,6 +66,40 @@ impl CPU {
                 let vx = ((opcode & 0x0f00) >> 8) as u8;
                 let nn = (opcode & 0x00ff) as u8;
                 self.v_regs[vx as usize] = nn;
+                self.pc_reg += 2;
+            }
+            Instructions::InstructionSetRegisterIndex => {
+                let nnn: u16 = opcode & 0x0fff;
+                self.i_reg = nnn;
+                self.pc_reg += 2;
+            }
+            Instructions::InstructionRenderDisplay => {
+                let vx = ((opcode & 0x0f00) >> 8) as u8;
+                let vy = ((opcode & 0x00f0) >> 4) as u8;
+                let n = ((opcode & 0x000f)) as usize;
+                let init_x = self.v_regs[vx as usize] as usize;
+                let init_y = self.v_regs[vy as usize] as usize;
+                
+                self.v_regs[0xF] = 0;
+                for i in 0..n {
+                    let pixel: u16 = memory.get_from_index(self.i_reg as usize + i as usize) as u16;
+                    for j in 0..8 {
+                        let x = (init_x + j) % 64;
+                        let y = (init_y + i) % 32;
+                        if pixel & 0x80 >> j != 0 {
+                            self.v_regs[0xF] |= self.screen_buffer[y % 32][x % 64] as u8;
+                            self.screen_buffer[y][x] ^= true;
+                        }
+                    }
+                }
+
+                self.pc_reg += 2;
+                self.flags |= 0xA;
+            }
+            Instructions::InstructionAddToRegister => {
+                let vx = ((opcode & 0x0f00) >> 8) as u8;
+                let nn = (opcode & 0x00ff) as u8;
+                self.v_regs[vx as usize] += nn;
                 self.pc_reg += 2;
             }
             _ => {
@@ -80,7 +117,7 @@ impl CPU {
             0x0000 => {
                 match opcode & 0x00ff {
                     0x00E0 => {
-                        return Instructions::InstructionClearScreen
+                        Instructions::InstructionClearScreen
                     }
                     _ => {
                         panic!("Unknown Instruction (0x00FF family), opcode: 0x{:X}", opcode);
@@ -88,13 +125,22 @@ impl CPU {
                 }
             },
             0x1000 => {
-                return Instructions::InstructionJump
+                Instructions::InstructionJump
             },
             0x2000 => {
-                return Instructions::InstructionCallSubroutine
+                Instructions::InstructionCallSubroutine
             },
             0x6000 => {
-                return Instructions::InstructionSetRegister
+                Instructions::InstructionSetRegister
+            },
+            0x7000 => {
+                Instructions::InstructionAddToRegister
+            }
+            0xA000 => {
+                Instructions::InstructionSetRegisterIndex
+            },
+            0xD000 => {
+                Instructions::InstructionRenderDisplay
             }
             _ => {
                 panic!("Unknown Instruction, opcode: 0x{:X}", opcode);
@@ -107,7 +153,7 @@ impl CPU {
     pub fn remove_flag(&mut self, flag: u16) {
         self.flags &= !flag;
     }
-    pub fn get_cpu_buffer(&self) -> &[[u8; 64]; 32] {
+    pub fn get_cpu_buffer(&self) -> &[[bool; 64]; 32] {
         return &self.screen_buffer;
     }
 }
