@@ -31,11 +31,10 @@ impl Display{
 
         Self {
             canvas: canvas,
-            // pixels: [[false; WIDTH as usize]; HEIGHT as usize],
         }
     }
 
-    pub fn draw(&mut self, pixels: &[[bool; WIDTH as usize]; HEIGHT as usize], clamp_pos: i32, clamp_size: u32) {
+    pub fn draw(&mut self, pixels: &[[bool; WIDTH as usize]; HEIGHT as usize]) {
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
                 if pixels[y as usize][x as usize] {
@@ -45,7 +44,7 @@ impl Display{
                     // Background
                     self.canvas.set_draw_color(Color::RGB(0, 0, 0));
                 }
-                // x, y, w, h
+
                 let x1 = (x * SCALE_FACTOR) as i32;
                 let y1 = (y * SCALE_FACTOR) as i32;
                 let x2 = ((x + 1) * SCALE_FACTOR) as u32;

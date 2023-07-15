@@ -3,7 +3,6 @@
 use super::memory::Memory;
 
 enum Instructions {
-    InstructionUnknown = 0,
     InstructionClearScreen = 0x1,
     InstructionJump = 0x2,
     InstructionCallSubroutine = 0x3,
@@ -15,11 +14,11 @@ enum Instructions {
 
 pub struct CPU {
     screen_buffer: [[bool; 64]; 32],
-    pc_reg: u16,
-    i_reg: u16,
-    sp_reg: u16,
+    pc: u16,
+    i: u16,
+    sp: u16,
     stack: [u16; 16],
-    v_regs: [u8; 16],    // 15 variable registers, 1 flag register.
+    v: [u8; 16], // 15 variable registers, 1 flag register.
     flags: u16, // my specific flags which indicate what the processor is doing.
 }
 
@@ -27,16 +26,16 @@ impl CPU {
     pub fn new() -> Self {
         CPU {
             screen_buffer: [[false; 64]; 32],
-            pc_reg: 0x0,
-            i_reg: 0x0,
-            sp_reg: 0x0,
+            pc: 0x0,
+            i: 0x0,
+            sp: 0x0,
             stack: [0; 16],
-            v_regs: [0; 16],
+            v: [0; 16],
             flags: 0x0,
         }
     }
     pub fn initialize(&mut self) {
-        self.pc_reg = 0x200; // point our Program Counter at the beginning of our application in the memory.
+        self.pc = 0x200;
     }
     // Let's only expose "execute" publicly, we'll handle fetching and decoding privately.
     pub fn execute(&mut self, memory: &mut Memory) {
@@ -49,58 +48,58 @@ impl CPU {
                         self.screen_buffer[y][x] = false;
                     }
                 }
-                self.pc_reg += 2;
+                self.pc += 2;
                 self.flags |= 0xA;
             }
             Instructions::InstructionJump => {
                 let nnn: u16 = opcode & 0x0fff;
-                self.pc_reg = nnn;
+                self.pc = nnn;
             }
             Instructions::InstructionCallSubroutine => {
                 let nnn: u16 = opcode & 0x0fff;
-                self.stack[self.sp_reg as usize] = self.pc_reg;
-                self.sp_reg += 1;
-                self.pc_reg = nnn;
+                self.stack[self.sp as usize] = self.pc;
+                self.sp += 1;
+                self.pc = nnn;
             }
             Instructions::InstructionSetRegister => {
                 let vx = ((opcode & 0x0f00) >> 8) as u8;
                 let nn = (opcode & 0x00ff) as u8;
-                self.v_regs[vx as usize] = nn;
-                self.pc_reg += 2;
+                self.v[vx as usize] = nn;
+                self.pc += 2;
             }
             Instructions::InstructionSetRegisterIndex => {
                 let nnn: u16 = opcode & 0x0fff;
-                self.i_reg = nnn;
-                self.pc_reg += 2;
+                self.i = nnn;
+                self.pc += 2;
             }
             Instructions::InstructionRenderDisplay => {
                 let vx = ((opcode & 0x0f00) >> 8) as u8;
                 let vy = ((opcode & 0x00f0) >> 4) as u8;
                 let n = ((opcode & 0x000f)) as usize;
-                let init_x = self.v_regs[vx as usize] as usize;
-                let init_y = self.v_regs[vy as usize] as usize;
+                let init_x = self.v[vx as usize] as usize;
+                let init_y = self.v[vy as usize] as usize;
                 
-                self.v_regs[0xF] = 0;
+                self.v[0xF] = 0;
                 for i in 0..n {
-                    let pixel: u16 = memory.get_from_index(self.i_reg as usize + i as usize) as u16;
+                    let pixel: u16 = memory.get_from_index(self.i as usize + i as usize) as u16;
                     for j in 0..8 {
                         let x = (init_x + j) % 64;
                         let y = (init_y + i) % 32;
                         if pixel & 0x80 >> j != 0 {
-                            self.v_regs[0xF] |= self.screen_buffer[y % 32][x % 64] as u8;
+                            self.v[0xF] |= self.screen_buffer[y % 32][x % 64] as u8;
                             self.screen_buffer[y][x] ^= true;
                         }
                     }
                 }
 
-                self.pc_reg += 2;
+                self.pc += 2;
                 self.flags |= 0xA;
             }
             Instructions::InstructionAddToRegister => {
                 let vx = ((opcode & 0x0f00) >> 8) as u8;
                 let nn = (opcode & 0x00ff) as u8;
-                self.v_regs[vx as usize] += nn;
-                self.pc_reg += 2;
+                self.v[vx as usize] += nn;
+                self.pc += 2;
             }
             _ => {
                 panic!("Unimplemented Instruction, 0x{:X} called!", opcode);
@@ -108,9 +107,9 @@ impl CPU {
         }
     }
     fn fetch(&self, memory: &mut Memory) -> u16 {
-        let lP = memory.get_from_index(self.pc_reg.into());
-        let hP = memory.get_from_index((self.pc_reg + 1).into());
-        return (u16::from(lP) << 8 | u16::from(hP));
+        let lP = memory.get_from_index(self.pc.into());
+        let hP = memory.get_from_index((self.pc + 1).into());
+        return u16::from(lP) << 8 | u16::from(hP);
     }
     fn decode(&self, opcode: u16) -> Instructions {
         match opcode & 0xf000 {

@@ -12,7 +12,7 @@ fn main() {
 
     let mut memory = interpreter::memory::Memory::new();
     memory.initialize();
-    memory.load_rom("ibm.ch8");
+    memory.load_rom("pong.rom");
 
     let context = sdl2::init().unwrap();
     let mut display = interpreter::display::Display::new(&context);
@@ -31,15 +31,10 @@ fn main() {
             }
         }
 
-        {
-            if cpu.get_flags() & 0xA != 0 {
-                print!("CPU is requesting render!\n");
-                let buffer = cpu.get_cpu_buffer();
-                // let sss: String = buffer.iter().map(|&x| format!("{:?}", x)).collect();
-                // print!("bf is\n{}\n", sss);
-                display.draw(buffer, 10, 10);
-                cpu.remove_flag(0xA);
-            }
+        if cpu.get_flags() & 0xA != 0 {
+            let buffer = cpu.get_cpu_buffer();
+            display.draw(buffer);
+            cpu.remove_flag(0xA);
         }
 
        std::thread::sleep(Duration::from_millis(1000));
