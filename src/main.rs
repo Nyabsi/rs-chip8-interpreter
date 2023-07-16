@@ -22,7 +22,7 @@ fn main() {
     'running: loop {
 
         cpu.execute(&mut memory);
-        // cpu.print_debug();
+        cpu.print_debug();
 
         if cpu.get_flags() & 0xF != 0 {
             let buffer = cpu.get_buffer();

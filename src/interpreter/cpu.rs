@@ -156,7 +156,7 @@ impl CPU {
                 if self.v[x as usize] != self.v[y as usize] { self.pc += 4; } else { self.pc += 2; }
             },
             Instructions::Instruction00ee => {
-                self.sp = self.sp.wrapping_sub(1);
+                self.sp -= 1;
                 self.pc = self.stack[self.sp as usize];
                 self.pc += 2;
             },
@@ -183,42 +183,27 @@ impl CPU {
                 self.pc += 2;
             },
             Instructions::Instruction8xy5 => {
-                let vx = self.v[x as usize];
-                let vy = self.v[x as usize];
-                let overflow: bool;
-                // I don't see any other CHIP-8 emulator doing it like this, but this will set the flags correctly, in-case if the value overflows.
-                (self.v[x as usize], overflow) = self.v[x as usize].overflowing_sub(self.v[y as usize]);
-                if overflow {
-                    self.v[0xF] = if self.v[y as usize] >= self.v[x as usize] { 1 } else { 0 };
-                } else {
-                    self.v[0xF] = if vx >= vy { 1 } else { 0 };
-                }
+                let flag = self.v[x as usize] >= self.v[y as usize];
+                self.v[x as usize] = self.v[x as usize].wrapping_sub(self.v[y as usize]);
+                self.v[0xF] = flag as u8;
                 self.pc += 2;
             },
             Instructions::Instruction8xy7 => {
-                let vx = self.v[x as usize];
-                let vy = self.v[x as usize];
-                let overflow: bool;
-                (self.v[x as usize], overflow) = self.v[y as usize].overflowing_sub(self.v[x as usize]);
-                if overflow {
-                    self.v[0xF] = if self.v[y as usize] >= self.v[x as usize] { 1 } else { 0 };
-                } else {
-                    self.v[0xF] = if vx >= vy { 1 } else { 0 };
-                }
+                let flag = self.v[y as usize] >= self.v[x as usize];
+                self.v[x as usize] = self.v[y as usize].wrapping_sub(self.v[x as usize]);
+                self.v[0xF] = flag as u8;
                 self.pc += 2;
             },
             Instructions::Instruction8xy6 => {
-                // NOTE: the first line is only meant for the original CHIP-8 and it is a "Compability Quirk"
-                // self.v[x as usize] = self.v[y as usize];
-                self.v[x as usize] >>= 1;
-                self.v[0xF] = self.v[x as usize] & 1;
+                let flag = self.v[y as usize] & 0b00000001 > 0;
+                self.v[x as usize] = self.v[y as usize] >> 1;
+                self.v[0xF] = flag as u8;
                 self.pc += 2;
             },
             Instructions::Instruction8xye => {
-                // NOTE: the first line is only meant for the original CHIP-8 and it is a "Compability Quirk"
-                // self.v[x as usize] = self.v[y as usize];
-                self.v[x as usize] <<= 1;
-                self.v[0xF] = self.v[x as usize] >> 7 & 0x80;
+                let flag = self.v[y as usize] & 0b10000000 > 0;
+                self.v[x as usize] = self.v[y as usize] << 1;
+                self.v[0xF] = flag as u8;
                 self.pc += 2;
             },
             Instructions::Instructionfx55 => {
@@ -248,23 +233,14 @@ impl CPU {
                 self.pc += 2;
             },
             Instructions::Instructionbnnn => {
-                // TODO: for compability reasons i'll implement both the old and new way, though I don't have way to toggle them yet.
-                // let nnn = opcode & 0x0fff;
-                // self.pc = nnn;
-                // self.v[0] = nnn as u8;
-                let nn = opcode & 0x00ff;
-                self.pc = nn; // jump
-                self.v[x as usize] = nn as u8;
+                let nnn = opcode & 0x0fff;
+                self.pc = nnn + self.v[0 as usize] as u16; // v[x] QUIRK
                 self.pc += 2;
             },
             Instructions::Instructionfx1e => {
-                self.v[0xF] = if self.i > 0x0F00 { 1 } else { 0 };
                 self.i += self.v[x as usize] as u16;
+                self.v[0xF] = if self.i > 0x0F00 { 1 } else { 0 };
                 self.pc += 2;
-            },
-            Instructions::Instructionfx0a => {
-                print!("0xFX0A has not been implemented, we are in a loop!\n");
-                self.pc -= 2;
             },
             Instructions::Instructionfx07 => {
                 self.v[x as usize] = self.delay_timer;
@@ -277,6 +253,9 @@ impl CPU {
             Instructions::Instructionfx18 => {
                 self.sound_timer = self.v[x as usize];
                 self.pc += 2;
+            },
+            _ => {
+                print!("Trying to execute 0x{:X}, it has not been implemnted.", opcode);
             }
         }
     }
@@ -431,10 +410,10 @@ impl CPU {
     }
 
     pub fn print_debug(&self) {
-        print!("V0 = 0x{:X} V1 = 0x{:X} V2 = 0x{:X} V3 = 0x{:X}\n", self.v[0], self.v[1], self.v[2], self.v[3]);
-        print!("V4 = 0x{:X} V5 = 0x{:X} V6 = 0x{:X} V7 = 0x{:X}\n", self.v[4], self.v[5], self.v[6], self.v[7]);
-        print!("V8 = 0x{:X} V9 = 0x{:X} V10 = 0x{:X} V11 = 0x{:X}\n", self.v[8], self.v[9], self.v[10], self.v[11]);
-        print!("V12 = 0x{:X} V13 = 0x{:X} V14 = 0x{:X} Flag = 0x{:X}\n", self.v[12], self.v[13], self.v[14], self.v[15]);
-        print!("I = 0x{:X} PC = 0x{:X} SP = 0x{:X}\n", self.i,  self.pc, self.sp);
+        print!("V0 = 0x{:08X} V1 = 0x{:08X} V2 = 0x{:08X} V3 = 0x{:08X}\n", self.v[0], self.v[1], self.v[2], self.v[3]);
+        print!("V4 = 0x{:08X} V5 = 0x{:08X} V6 = 0x{:08X} V7 = 0x{:08X}\n", self.v[4], self.v[5], self.v[6], self.v[7]);
+        print!("V8 = 0x{:08X} V9 = 0x{:08X} V10 = 0x{:08X} V11 = 0x{:08X}\n", self.v[8], self.v[9], self.v[10], self.v[11]);
+        print!("V12 = 0x{:08X} V13 = 0x{:08X} V14 = 0x{:08X} Flag = 0x{:08X}\n", self.v[12], self.v[13], self.v[14], self.v[15]);
+        print!("I = 0x{:08X} PC = 0x{:08X} SP = 0x{:08X}\n", self.i,  self.pc, self.sp);
     }
 }
