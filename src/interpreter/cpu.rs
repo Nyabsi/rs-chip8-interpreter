@@ -161,21 +161,21 @@ impl CPU {
                 self.pc += 2;
             },
             Instructions::Instruction8xy2 => {
-                self.v[x as usize] = self.v[x as usize] & self.v[y as usize];
+                self.v[x as usize] &= self.v[y as usize];
                 self.pc += 2;
             },
             Instructions::Instruction8xy1 => {
-                self.v[x as usize] = self.v[x as usize] | self.v[y as usize];
+                self.v[x as usize] |= self.v[y as usize];
                 self.pc += 2;
             },
             Instructions::Instruction8xy3 => {
-                self.v[x as usize] = self.v[x as usize] ^ self.v[y as usize];
+                self.v[x as usize] ^= self.v[y as usize];
                 self.pc += 2;
             },
             Instructions::Instruction8xy4 => {
                 let sum = self.v[x as usize] as u32 + self.v[y as usize] as u32;
-                self.v[0xF] = if sum > 0xFF { 1 } else { 0 };
                 self.v[x as usize] = self.v[x as usize].wrapping_add(self.v[y as usize]) & 0xFF;
+                self.v[0xF] = if sum > 0xFF { 1 } else { 0 };
                 self.pc += 2;
             },
             Instructions::Instruction8xy0 => {
@@ -183,27 +183,27 @@ impl CPU {
                 self.pc += 2;
             },
             Instructions::Instruction8xy5 => {
-                self.v[0xF] = if self.v[x as usize] > self.v[y as usize] { 0 } else { 1 };
                 self.v[x as usize] = self.v[x as usize].wrapping_sub(self.v[y as usize]) & 0xFF;
+                self.v[0xF] = if self.v[x as usize] > self.v[y as usize] { 1 } else { 0 };
                 self.pc += 2;
             },
             Instructions::Instruction8xy7 => {
-                self.v[0xF] = if self.v[y as usize] > self.v[x as usize] { 0 } else { 1 };
                 self.v[x as usize] = self.v[y as usize].wrapping_sub(self.v[x as usize]) & 0xFF;
+                self.v[0xF] = if self.v[y as usize] > self.v[x as usize] { 1 } else { 0 };
                 self.pc += 2;
             },
             Instructions::Instruction8xy6 => {
-                // TODO: make a configuration, code below will fail tests because of newer logic.
-                // self.v[x as usize] = self.v[y as usize];
-                self.v[0xF] = if self.v[x as usize] % 2 == 1 { 1 } else { 0 };
-                self.v[x as usize] = self.v[x as usize] >> 1;
+                // NOTE: the first line is only meant for the original CHIP-8 and it is a "Compability Quirk"
+                self.v[x as usize] = self.v[y as usize];
+                self.v[x as usize] >>= 1;
+                self.v[0xF] = self.v[x as usize] & 1;
                 self.pc += 2;
             },
             Instructions::Instruction8xye => {
-                // TODO: make a configuration, code below will fail tests because of newer logic.
-                // self.v[x as usize] = self.v[y as usize];
-                self.v[0xF] = if self.v[x as usize] % 2 == 1 { 1 } else { 0 };
-                self.v[x as usize] = self.v[x as usize] << 1;
+                // NOTE: the first line is only meant for the original CHIP-8 and it is a "Compability Quirk"
+                self.v[x as usize] = self.v[y as usize];
+                self.v[x as usize] <<= 1;
+                self.v[0xF] = self.v[x as usize] >> 7 & 0x80;
                 self.pc += 2;
             },
             Instructions::Instructionfx55 => {
@@ -239,13 +239,13 @@ impl CPU {
                 self.pc += 2;
             },
             Instructions::Instructionfx1e => {
-                // We do not care if it overflows, it is actually a good thing it it does.
-                self.i = self.i.wrapping_add(self.v[x as usize] as u16); // & 0x1000
+                self.i += self.v[x as usize] as u16;
+                self.v[0xF] = if self.i > 0x0FFF { 1 } else { 0 };
                 self.pc += 2;
             },
             Instructions::Instructionfx0a => {
                 print!("0xFX0A has not been implemented, we are in a loop!\n");
-                self.pc -= 1;
+                self.pc -= 2;
             },
             Instructions::Instructionfx07 => {
                 self.v[x as usize] = self.delay_timer;

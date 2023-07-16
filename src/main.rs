@@ -13,7 +13,7 @@ fn main() {
 
     let mut memory = interpreter::memory::Memory::new();
     memory.initialize();
-    memory.load_rom("roms/test_opcode.ch8");
+    memory.load_rom("roms/ibm.ch8");
 
     let context = sdl2::init().unwrap();
     let mut display = interpreter::display::Display::new(&context);
