@@ -196,8 +196,15 @@ impl CPU {
                 self.pc += 2;
             },
             Instructions::Instruction8xy7 => {
-                self.v[x as usize] = self.v[y as usize].wrapping_sub(self.v[x as usize]);
-                self.v[0xF] = if self.v[y as usize] >= self.v[x as usize] { 1 } else { 0 };
+                let vx = self.v[x as usize];
+                let vy = self.v[x as usize];
+                let overflow: bool;
+                (self.v[x as usize], overflow) = self.v[y as usize].overflowing_sub(self.v[x as usize]);
+                if overflow {
+                    self.v[0xF] = if self.v[y as usize] >= self.v[x as usize] { 1 } else { 0 };
+                } else {
+                    self.v[0xF] = if vx >= vy { 1 } else { 0 };
+                }
                 self.pc += 2;
             },
             Instructions::Instruction8xy6 => {
