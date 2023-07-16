@@ -173,9 +173,9 @@ impl CPU {
                 self.pc += 2;
             },
             Instructions::Instruction8xy4 => {
-                let sum = self.v[x as usize] as u32 + self.v[y as usize] as u32;
-                self.v[x as usize] = self.v[x as usize].wrapping_add(self.v[y as usize]) & 0xFF;
-                self.v[0xF] = if sum > 0xFF { 1 } else { 0 };
+                let result = u16::from(self.v[x as usize]).wrapping_add(self.v[y as usize] as u16);
+                self.v[x as usize] = (result & 0xFF) as u8; // truncate
+                self.v[0xF] = if result > 0xFF { 1 } else { 0 };
                 self.pc += 2;
             },
             Instructions::Instruction8xy0 => {
@@ -183,39 +183,51 @@ impl CPU {
                 self.pc += 2;
             },
             Instructions::Instruction8xy5 => {
-                self.v[x as usize] = self.v[x as usize].wrapping_sub(self.v[y as usize]) & 0xFF;
-                self.v[0xF] = if self.v[x as usize] > self.v[y as usize] { 1 } else { 0 };
+                let vx = self.v[x as usize];
+                let vy = self.v[x as usize];
+                let overflow: bool;
+                // I don't see any other CHIP-8 emulator doing it like this, but this will set the flags correctly, in-case if the value overflows.
+                (self.v[x as usize], overflow) = self.v[x as usize].overflowing_sub(self.v[y as usize]);
+                if overflow {
+                    self.v[0xF] = if self.v[y as usize] >= self.v[x as usize] { 1 } else { 0 };
+                } else {
+                    self.v[0xF] = if vx >= vy { 1 } else { 0 };
+                }
                 self.pc += 2;
             },
             Instructions::Instruction8xy7 => {
-                self.v[x as usize] = self.v[y as usize].wrapping_sub(self.v[x as usize]) & 0xFF;
-                self.v[0xF] = if self.v[y as usize] > self.v[x as usize] { 1 } else { 0 };
+                self.v[x as usize] = self.v[y as usize].wrapping_sub(self.v[x as usize]);
+                self.v[0xF] = if self.v[y as usize] >= self.v[x as usize] { 1 } else { 0 };
                 self.pc += 2;
             },
             Instructions::Instruction8xy6 => {
                 // NOTE: the first line is only meant for the original CHIP-8 and it is a "Compability Quirk"
-                self.v[x as usize] = self.v[y as usize];
+                // self.v[x as usize] = self.v[y as usize];
                 self.v[x as usize] >>= 1;
                 self.v[0xF] = self.v[x as usize] & 1;
                 self.pc += 2;
             },
             Instructions::Instruction8xye => {
                 // NOTE: the first line is only meant for the original CHIP-8 and it is a "Compability Quirk"
-                self.v[x as usize] = self.v[y as usize];
+                // self.v[x as usize] = self.v[y as usize];
                 self.v[x as usize] <<= 1;
                 self.v[0xF] = self.v[x as usize] >> 7 & 0x80;
                 self.pc += 2;
             },
             Instructions::Instructionfx55 => {
                 for i in 0..=x {
-                    memory.set_from_index(self.i as usize + i as usize, self.v[x as usize]);
+                    memory.set_from_index(self.i as usize + i as usize, self.v[i as usize]);
                 }
+                // Compability Quirk
+                // self.i += x + 1;
                 self.pc += 2;
             },
             Instructions::Instructionfx65 => {
                 for i in 0..=x {
                     self.v[i as usize] = memory.get_from_index(self.i as usize + i as usize);
                 }
+                // Compability Quirk
+                // self.i += x + 1;
                 self.pc += 2;
             },
             Instructions::Instructionfx29 => {
@@ -239,8 +251,8 @@ impl CPU {
                 self.pc += 2;
             },
             Instructions::Instructionfx1e => {
+                self.v[0xF] = if self.i > 0x0F00 { 1 } else { 0 };
                 self.i += self.v[x as usize] as u16;
-                self.v[0xF] = if self.i > 0x0FFF { 1 } else { 0 };
                 self.pc += 2;
             },
             Instructions::Instructionfx0a => {
