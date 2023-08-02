@@ -7,10 +7,10 @@ This is my take on the famous CHIP-8 system and it's emulation.
 - CPU
 - Memory
 - Display
+- keypad
 
 # TODO List
 
-- keypad
 - Debugger
 - Improve Code
 - SUPER-CHIP support (?)

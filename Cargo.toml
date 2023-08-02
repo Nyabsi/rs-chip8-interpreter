@@ -6,5 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+beep-evdev = "0.1.2"
+crate = "0.0.2"
+dimensioned = "0.8.0"
+extern = "0.0.0"
+glow = "0.12.2"
+imgui = "0.11.0"
+libc = "0.2.147"
+nix = "0.26.2"
 rand = "0.8.5"
 sdl2 = "0.35.2"

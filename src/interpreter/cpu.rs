@@ -1,8 +1,31 @@
-// This file manages the CPU of the interpreter.
+// MIT License
+// 
+// Copyright (c) 2023 LumenTuoma
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// UTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 use rand::Rng;
 
+use super::display::Display;
 use super::memory::Memory;
+use super::keypad::Keypad;
+
 
 enum Instructions {
     Instruction00e0 = 0x1,  // Clear Display
@@ -37,6 +60,8 @@ enum Instructions {
     Instructionfx07 = 0x30, // Timer (Delay) Fetch
     Instructionfx15 = 0x31, // Timer (Delay) Set
     Instructionfx18 = 0x32, // Timer (Sound) Set
+    Instructionex9e = 0x33, // Skip if key
+    Instructionexa1 = 0x34, // Skip if key
 }
 
 const WIDTH: usize = 64;
@@ -48,15 +73,14 @@ pub struct CPU {
     i: u16,
     sp: u16,
     stack: [u16; 16],
-    v: [u8; 16], // 15 variable registers, 1 flag register.
+    v: [u8; 16],
     delay_timer: u8,
     sound_timer: u8,
-    flags: u16, // my specific flags which indicate what the processor is doing.
 }
 
 impl CPU {
     pub fn new() -> Self {
-        CPU {
+        Self {
             buffer: [[false; WIDTH]; HEIGHT],
             pc: 0x200,
             i: 0x0,
@@ -64,13 +88,13 @@ impl CPU {
             stack: [0; 16],
             v: [0; 16],
             delay_timer: 0x0,
-            sound_timer: 0x0,
-            flags: 0x0,
+            sound_timer: 0x0
         }
+        
     }
 
     // Let's only expose "execute" publicly, we'll handle fetching and decoding privately.
-    pub fn execute(&mut self, memory: &mut Memory) {
+    pub fn execute(&mut self, display: &mut Display, memory: &mut Memory, keypad:&mut Keypad) {
         let opcode = self.fetch(memory);
         let instruction = self.decode(opcode);
 
@@ -86,7 +110,6 @@ impl CPU {
                     }
                 }
                 self.pc += 2;
-                self.flags |= 0xF;
             },
             Instructions::Instruction1nnn => {
                 let nnn: u16 = opcode & 0x0fff;
@@ -125,9 +148,8 @@ impl CPU {
                         }
                     }
                 }
-
+                display.draw(&self.buffer);
                 self.pc += 2;
-                self.flags |= 0xF;
             },
             Instructions::Instruction7xnn => {
                 let nn = opcode & 0x00ff;
@@ -210,16 +232,14 @@ impl CPU {
                 for i in 0..=x {
                     memory.set_from_index(self.i as usize + i as usize, self.v[i as usize]);
                 }
-                // Compability Quirk
-                // self.i += x + 1;
+                self.i += x + 1; // do not use this unless you strictly use CHIP-8
                 self.pc += 2;
             },
             Instructions::Instructionfx65 => {
                 for i in 0..=x {
                     self.v[i as usize] = memory.get_from_index(self.i as usize + i as usize);
                 }
-                // Compability Quirk
-                // self.i += x + 1;
+                self.i += x + 1; // do not use this unless you strictly use CHIP-8
                 self.pc += 2;
             },
             Instructions::Instructionfx29 => {
@@ -234,7 +254,7 @@ impl CPU {
             },
             Instructions::Instructionbnnn => {
                 let nnn = opcode & 0x0fff;
-                self.pc = nnn + self.v[0 as usize] as u16; // v[x] QUIRK
+                self.pc = nnn + self.v[x as usize] as u16; // v[0] if you want XO-CHIP / SUPER-CHIP
                 self.pc += 2;
             },
             Instructions::Instructionfx1e => {
@@ -254,8 +274,33 @@ impl CPU {
                 self.sound_timer = self.v[x as usize];
                 self.pc += 2;
             },
-            _ => {
-                print!("Trying to execute 0x{:X}, it has not been implemnted.", opcode);
+            Instructions::Instructionfx0a => {
+
+                // let execution_paused: bool = self.get_flags() & 0xA != 0;
+
+                // pause execution
+                // if !execution_paused { self.flags |= 0xA; }
+
+                let (key_code, pressed) = keypad.is_any_key_down_emulator();
+
+                if pressed {
+                    self.v[x as usize] = key_code;
+                    self.pc += 2;
+                    // resume execution
+                    // self.flags &= 0xA;
+                } else {
+                    self.pc -= 2;
+                }
+            },
+            Instructions::Instructionexa1 => {
+                let pressed = keypad.is_key_down_emulator(self.v[x as usize]);
+                if !pressed { self.pc += 2; }
+                self.pc += 2;
+            },
+            Instructions::Instructionex9e => {
+                let pressed = keypad.is_key_down_emulator(self.v[x as usize]);
+                if pressed { self.pc += 2; }
+                self.pc += 2;
             }
         }
     }
@@ -351,6 +396,19 @@ impl CPU {
             0xD000 => {
                 Instructions::Instructiondxyn
             },
+            0xE000 => {
+                match opcode & 0x00ff {
+                    0x009E => {
+                        Instructions::Instructionex9e
+                    },
+                    0x00A1 => {
+                        Instructions::Instructionexa1
+                    },
+                    _ => {
+                        panic!("Unknown Instruction (0xE000 family), opcode: 0x{:X}", opcode);
+                    }
+                }
+            },
             0xF000 => {
                 match opcode & 0x00ff {
                     0x0033 => {
@@ -390,30 +448,16 @@ impl CPU {
             }
         }
     }
-
-    pub fn get_flags(&self) -> &u16 {
-        return &self.flags;
+    pub fn get_delay_timer(&self) -> u8 {
+        return self.delay_timer;
     }
-
-    pub fn remove_flag(&mut self, flag: u16) {
-        self.flags &= !flag;
+    pub fn get_sound_timer(&self) -> u8 {
+        return self.sound_timer;
     }
-
-    pub fn get_buffer(&self) -> &[[bool; WIDTH]; HEIGHT] {
-        return &self.buffer;
+    pub fn dec_delay_timer(&mut self) {
+        self.delay_timer -= 1;
     }
-
-    pub fn decrement_timer(&mut self) {
-        if self.delay_timer > 0 {
-            self.delay_timer -= 1;
-        }
-    }
-
-    pub fn print_debug(&self) {
-        print!("V0 = 0x{:08X} V1 = 0x{:08X} V2 = 0x{:08X} V3 = 0x{:08X}\n", self.v[0], self.v[1], self.v[2], self.v[3]);
-        print!("V4 = 0x{:08X} V5 = 0x{:08X} V6 = 0x{:08X} V7 = 0x{:08X}\n", self.v[4], self.v[5], self.v[6], self.v[7]);
-        print!("V8 = 0x{:08X} V9 = 0x{:08X} V10 = 0x{:08X} V11 = 0x{:08X}\n", self.v[8], self.v[9], self.v[10], self.v[11]);
-        print!("V12 = 0x{:08X} V13 = 0x{:08X} V14 = 0x{:08X} Flag = 0x{:08X}\n", self.v[12], self.v[13], self.v[14], self.v[15]);
-        print!("I = 0x{:08X} PC = 0x{:08X} SP = 0x{:08X}\n", self.i,  self.pc, self.sp);
+    pub fn dec_sound_timer(&mut self) {
+        self.sound_timer -= 1;
     }
 }
